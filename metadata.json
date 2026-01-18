@@ -1,0 +1,7 @@
+{
+  "name": "VER kiểm kê kho giấy mobiler 2.0.1",
+  "description": "Mobile-first paper inventory management system.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
