@@ -251,7 +251,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onError }) => {
 
                 <div className="mt-12 text-center opacity-40">
                     <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold">Hệ thống kiểm kê kho giấy</p>
-                    <p className="text-[10px] text-gray-600 mt-1">v2.1.0 • PTB BULD 2026 </p>
+                    <p className="text-[10px] text-gray-600 mt-1">v2.0.0 • PTB BULD 2026 </p>
                 </div>
             </div>
         </div>
