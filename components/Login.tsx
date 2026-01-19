@@ -117,7 +117,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onError }) => {
                     </h1>
                     <div className="flex items-center justify-center gap-3">
                          <div className="h-[1px] w-8 bg-gray-600"></div>
-                         <p className="text-xs font-bold text-brand uppercase tracking-[0.3em]">Mobile App 2.0</p>
+                         <p className="text-xs font-bold text-brand uppercase tracking-[0.3em]">Mobile App</p>
                          <div className="h-[1px] w-8 bg-gray-600"></div>
                     </div>
                 </div>
