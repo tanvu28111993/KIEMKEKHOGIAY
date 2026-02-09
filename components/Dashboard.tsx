@@ -1,6 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { PaperRoll, User, CheckStatus } from '../types';
 import Scanner from './Scanner';
+import { formatVNNumber, formatDateTime } from '../utils';
+
+// UI Components
+import CardBox from './ui/CardBox';
+import InfoRow from './ui/InfoRow';
+import StatCard from './ui/StatCard';
 
 interface DashboardProps {
     user: User;
@@ -23,190 +29,13 @@ interface DashboardProps {
 const EDIT_COLOR = '#FF8C00'; // Dark Orange
 const WARNING_COLOR = '#FF8C00'; // Match request for Orange warning
 
-// --- UTILS: Vietnamese Number Formatting ---
-const formatVNNumber = (value: string | number | undefined, isInteger: boolean = false): string => {
-    if (value === '' || value === null || value === undefined) return '-';
-    
-    let num: number;
-    if (typeof value === 'string') {
-        num = parseFloat(value.replace(/\./g, '').replace(',', '.'));
-    } else {
-        num = value;
-    }
-
-    if (isNaN(num)) return String(value);
-
-    return new Intl.NumberFormat('vi-VN', { 
-        maximumFractionDigits: isInteger ? 0 : 2,
-        minimumFractionDigits: 0
-    }).format(num);
-};
-
-// --- COMPONENTS ---
-
-interface InfoRowProps {
-    label: string;
-    value: string | number;
-    copyable?: boolean;
-}
-
-const InfoRow: React.FC<InfoRowProps> = React.memo(({ label, value, copyable }) => (
-    <div className="flex justify-between items-start py-3.5 border-b border-white/5 last:border-0 group">
-        <span className="text-gray-500 text-[11px] font-bold uppercase tracking-wider flex items-center shrink-0 mr-3 mt-0.5">
-            {label}
-        </span>
-        <span 
-            className={`font-medium text-[14px] text-right flex-1 break-words text-gray-200 leading-snug ${copyable ? 'active:text-brand cursor-copy' : ''}`}
-            onClick={() => {
-                if (copyable && value && navigator.clipboard) {
-                    navigator.clipboard.writeText(String(value));
-                    if (navigator.vibrate) navigator.vibrate(10);
-                }
-            }}
-        >
-            {value || '-'}
-        </span>
-    </div>
-));
-
-interface CardBoxProps {
-    title: string;
-    children: React.ReactNode;
-    icon?: string;
-    color?: string;
-    action?: React.ReactNode;
-    className?: string;
-}
-
-const CardBox: React.FC<CardBoxProps> = ({ title, children, icon, color = 'text-white', action, className = '' }) => (
-    <div className={`bg-[#1e1e1e] border border-white/5 rounded-[1.25rem] p-5 mb-4 shadow-lg ${className}`}>
-        <div className="flex justify-between items-center mb-4 pb-2 border-b border-white/5">
-            <h3 className={`font-extrabold text-[12px] flex items-center uppercase tracking-widest opacity-80 ${color}`}>
-                {icon && <span className="material-symbols-outlined text-lg mr-2 opacity-80">{icon}</span>}
-                {title}
-            </h3>
-            {action}
-        </div>
-        <div className="w-full">
-            {children}
-        </div>
-    </div>
-);
-
-interface StatCardProps {
-    fieldKey?: keyof PaperRoll;
-    label: string;
-    value: string | number;
-    unit?: string;
-    icon?: string;
-    isEditable?: boolean;
-    fullWidth?: boolean;
-    isInteger?: boolean;
-    isEditingThis: boolean;
-    tempValue: string | number;
-    onStartEditing: (field: keyof PaperRoll, value: string | number, e?: React.MouseEvent) => void;
-    onSave: () => void;
-    onValueChange: (val: string) => void;
-    onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
-}
-
-const StatCard: React.FC<StatCardProps> = React.memo(({ 
-    fieldKey, label, value, unit, icon, isEditable = false, fullWidth = false, isInteger = false,
-    isEditingThis, tempValue, onStartEditing, onSave, onValueChange, onKeyDown,
-}) => {
-    const inputRef = useRef<HTMLInputElement>(null);
-
-    useEffect(() => {
-        if (isEditingThis && inputRef.current) {
-            inputRef.current.focus();
-            setTimeout(() => inputRef.current?.select(), 50);
-        }
-    }, [isEditingThis]);
-
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        let val = e.target.value;
-        
-        // OPTIMIZATION: Auto-replace comma with dot for standard decimal format
-        val = val.replace(/,/g, '.');
-
-        // Allow only digits and one dot
-        if (/^\d*\.?\d*$/.test(val)) {
-            onValueChange(val);
-        }
-    };
-
-    // Style logic: Match "Vị trí lưu kho" (font-black tracking-tight) but 80% size of 2rem -> 1.6rem
-    const textStyleClass = "font-black tracking-tight leading-none text-[1.6rem]";
-
-    return (
-        <div className={`
-            relative overflow-hidden rounded-xl p-3.5 flex flex-col justify-between shadow-md transition-all min-h-[90px]
-            ${fullWidth ? 'col-span-2 bg-[#252525] border-l-[3px]' : 'bg-[#252525] border border-white/5'}
-            ${isEditable && !isEditingThis ? 'active:scale-[0.98] cursor-pointer hover:bg-[#2a2a2a]' : ''}
-            ${isEditingThis ? 'ring-2 ring-[#FF8C00] bg-neutral-800 z-10' : ''}
-        `}
-        style={{ borderColor: fullWidth ? EDIT_COLOR : undefined }}
-        onClick={(e) => {
-            if (isEditable && fieldKey && !isEditingThis) {
-                onStartEditing(fieldKey, value, e);
-            }
-        }}
-        >
-            <div className="flex justify-between items-start z-10 mb-1">
-                <span className="text-gray-500 text-[10px] font-bold uppercase tracking-widest flex items-center">
-                    {icon && <span className={`material-symbols-outlined text-[16px] mr-1.5 ${isEditable ? '' : 'text-gray-500'}`} style={{ color: isEditable ? EDIT_COLOR : undefined }}>{icon}</span>}
-                    {label}
-                </span>
-            </div>
-
-            <div className="flex items-baseline justify-end w-full z-10 min-h-[36px]">
-                {isEditingThis ? (
-                     <input
-                        ref={inputRef}
-                        type="text"
-                        // Force decimal keyboard on mobile
-                        inputMode="decimal"
-                        value={tempValue}
-                        onChange={handleInputChange}
-                        onBlur={onSave}
-                        onKeyDown={onKeyDown}
-                        className={`w-full bg-transparent text-right outline-none p-0 m-0 text-white caret-[#FF8C00] h-full ${textStyleClass}`}
-                    />
-                ) : (
-                    <>
-                        <span className={`${textStyleClass} ${isEditable ? '' : 'text-white'}`}
-                            style={{ 
-                                color: isEditable ? EDIT_COLOR : undefined,
-                            }}>
-                            {formatVNNumber(value, isInteger)}
-                        </span>
-                        {unit && <span className="text-[10px] text-gray-500 font-bold ml-1 uppercase transform -translate-y-1">{unit}</span>}
-                    </>
-                )}
-            </div>
-            
-            {isEditable && !isEditingThis && (
-                <div className="absolute inset-0 bg-transparent" />
-            )}
-        </div>
-    );
-});
-
-const formatDateTime = (dateStr: string) => {
-    if (!dateStr) return '-';
-    if (/^\d{2}\/\d{2}\/\d{4}/.test(dateStr)) return dateStr;
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return dateStr;
-    return new Intl.DateTimeFormat('vi-VN', { dateStyle: 'short', timeStyle: 'medium' }).format(d);
-};
-
-// --- UPDATED CONFIG: Renamed labels ---
+// --- CONFIG ---
 const STAT_FIELDS_CONFIG = [
     { key: 'gsm', label: 'Định Lượng', unit: 'GSM', icon: 'line_weight', full: true, editable: false, isInteger: true },
     { key: 'weight', label: 'Trọng Lượng', unit: 'KG', icon: 'weight', full: false, editable: true, isInteger: false },
     { key: 'quantity', label: 'Số Lượng', unit: 'Cuộn', icon: 'layers', full: false, editable: true, isInteger: true },
-    { key: 'lengthCm', label: 'KHỔ GIẤY/LÔ', unit: 'CM', icon: 'straighten', full: false, editable: true, isInteger: false }, // Renamed from Chiều Dài
-    { key: 'widthCm', label: 'Khổ Rộng', unit: 'CM', icon: 'aspect_ratio', full: false, editable: true, isInteger: false }, // Renamed from Khổ Giấy
+    { key: 'lengthCm', label: 'KHỔ GIẤY/LÔ', unit: 'CM', icon: 'straighten', full: false, editable: true, isInteger: false },
+    { key: 'widthCm', label: 'Khổ Rộng', unit: 'CM', icon: 'aspect_ratio', full: false, editable: true, isInteger: false },
 ] as const;
 
 const Dashboard: React.FC<DashboardProps> = React.memo(({ 
@@ -250,19 +79,40 @@ const Dashboard: React.FC<DashboardProps> = React.memo(({
 
     const startEditing = (field: keyof PaperRoll, value: string | number, e?: React.MouseEvent) => {
         if (e) e.stopPropagation();
+        
+        let initialValue = value === null || value === undefined ? '' : String(value);
+
+        // DATE CONVERSION LOGIC: DD/MM/YYYY -> YYYY-MM-DD for <input type="date">
+        if ((field === 'importDate' || field === 'prodDate') && initialValue) {
+            // Regex check for DD/MM/YYYY or D/M/YYYY
+            if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(initialValue)) {
+                const [day, month, year] = initialValue.split('/');
+                initialValue = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+            }
+        }
+
         setEditingField(field);
-        setTempValue(value === null || value === undefined ? '' : String(value));
+        setTempValue(initialValue);
         if (navigator.vibrate) navigator.vibrate(10);
     };
 
     const saveEditing = () => {
         if (editingField && foundItem) {
             let finalValue: string | number = tempValue;
-            const isNumericField = ['weight', 'quantity', 'lengthCm', 'widthCm', 'gsm'].includes(editingField);
             
+            // 1. Handle Numbers
+            const isNumericField = ['weight', 'quantity', 'lengthCm', 'widthCm', 'gsm'].includes(editingField);
             if (isNumericField && typeof tempValue === 'string') {
                 const parsed = parseFloat(tempValue);
                 finalValue = isNaN(parsed) ? tempValue : parsed;
+            }
+
+            // 2. Handle Dates: Convert YYYY-MM-DD back to DD/MM/YYYY
+            if ((editingField === 'importDate' || editingField === 'prodDate') && typeof tempValue === 'string') {
+                if (/^\d{4}-\d{2}-\d{2}$/.test(tempValue)) {
+                    const [year, month, day] = tempValue.split('-');
+                    finalValue = `${day}/${month}/${year}`;
+                }
             }
             
             if (finalValue != foundItem[editingField]) {
@@ -569,8 +419,28 @@ const Dashboard: React.FC<DashboardProps> = React.memo(({
                         </CardBox>
 
                         <CardBox title="Thời gian & Nhân sự" icon="history">
-                            <InfoRow label="Ngày Nhập" value={foundItem.importDate} />
-                            <InfoRow label="Ngày SX" value={foundItem.prodDate} />
+                            <InfoRow 
+                                label="Ngày Nhập" 
+                                value={foundItem.importDate} 
+                                isEditable={true}
+                                isEditing={editingField === 'importDate'}
+                                inputType="date"
+                                tempValue={tempValue}
+                                onStartEdit={() => startEditing('importDate', foundItem.importDate)}
+                                onSave={saveEditing}
+                                onChange={setTempValue}
+                            />
+                            <InfoRow 
+                                label="Ngày SX" 
+                                value={foundItem.prodDate} 
+                                isEditable={true}
+                                isEditing={editingField === 'prodDate'}
+                                inputType="date"
+                                tempValue={tempValue}
+                                onStartEdit={() => startEditing('prodDate', foundItem.prodDate)}
+                                onSave={saveEditing}
+                                onChange={setTempValue}
+                            />
                             <InfoRow label="Người Nhập" value={foundItem.importer} />
                             <InfoRow label="Cập nhật cuối" value={formatDateTime(foundItem.updatedAt)} />
                         </CardBox>
